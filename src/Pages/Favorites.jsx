@@ -22,7 +22,6 @@ import {
   Select,
 } from '@chakra-ui/react';
 
-// ... (All API keys and component setup is the same) ...
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const GOOGLE_BOOKS_API_KEY = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY;
 const GENIUS_ACCESS_TOKEN = import.meta.env.VITE_GENIUS_ACCESS_TOKEN;
@@ -45,7 +44,6 @@ const Favorites = ({ session }) => {
   const formBg = useColorModeValue('white', 'gray.700');
   const toast = useToast();
 
-  // ... (All functions: useEffect, handleSearch, handleSelectItem, handleAddFavorite, changeCategory are the same) ...
   // 1. Fetch existing favorites
   useEffect(() => {
     const getFavorites = async () => {
@@ -122,7 +120,8 @@ const Favorites = ({ session }) => {
         category: 'Movie',
         title: selectedItem.title,
         notes: comments,
-        image_url: `https.image.tmdb.org/t/p/w500${selectedItem.poster_path}`,
+        // --- FIX #1 WAS HERE ---
+        image_url: `https://image.tmdb.org/t/p/w500${selectedItem.poster_path}`,
         user_id: user.id,
       };
     } else if (searchCategory === 'Book') {
@@ -172,10 +171,9 @@ const Favorites = ({ session }) => {
 
   return (
     <VStack spacing={8} align="stretch">
-      {/* --- CHOOSE CATEGORY AND SEARCH (No change) --- */}
+      {/* --- CHOOSE CATEGORY AND SEARCH --- */}
       {!selectedItem && (
         <Box p={8} bg={formBg} borderRadius="xl" boxShadow="lg">
-          {/* ... (this whole section is unchanged) ... */}
           <form onSubmit={handleSearch}>
             <VStack spacing={4}>
               <Heading size="md">Search for a Favorite</Heading>
@@ -208,10 +206,9 @@ const Favorites = ({ session }) => {
             </VStack>
           </form>
           
-          {/* --- SEARCH RESULTS (No change) --- */}
+          {/* --- SEARCH RESULTS --- */}
           {searchResults.length > 0 && (
             <VStack align="stretch" mt={6}>
-              {/* ... (this whole section is unchanged) ... */}
               <Heading size="sm">Search Results</Heading>
               <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
                 {searchCategory === 'Movie' && searchResults.map((movie) => (
@@ -219,7 +216,8 @@ const Favorites = ({ session }) => {
                        _hover={{ shadow: 'md', borderColor: 'purple.500' }}
                        onClick={() => handleSelectItem(movie)}>
                     <HStack>
-                      <Image src={`https.image.tmdb.org/t/p/w200${movie.poster_path}`} 
+                      {/* --- FIX #2 WAS HERE --- */}
+                      <Image src={`https://image.tmdb.org/t/p/w200${movie.poster_path}`} 
                              alt={movie.title} boxSize="75px" objectFit="cover" borderRadius="md" />
                       <VStack align="start" spacing={0}>
                         <Text fontWeight="bold">{movie.title}</Text>
@@ -264,10 +262,9 @@ const Favorites = ({ session }) => {
         </Box>
       )}
 
-      {/* --- ADD FAVORITE FORM (No change) --- */}
+      {/* --- ADD FAVORITE FORM --- */}
       {selectedItem && (
         <Box p={8} bg={formBg} borderRadius="xl" boxShadow="lg" position="relative">
-          {/* ... (this whole section is unchanged) ... */}
           <CloseButton position="absolute" top={4} right={4} onClick={() => setSelectedItem(null)} />
           <form onSubmit={handleAddFavorite}>
             <VStack spacing={4}>
@@ -275,7 +272,8 @@ const Favorites = ({ session }) => {
               
               {searchCategory === 'Movie' && (
                 <HStack>
-                  <Image src={`https.image.tmdb.org/t/p/w200${selectedItem.poster_path}`} 
+                  {/* --- FIX #3 WAS HERE (This is the one you saw) --- */}
+                  <Image src={`https://image.tmdb.org/t/p/w200${selectedItem.poster_path}`} 
                          alt={selectedItem.title} boxSize="100px" objectFit="cover" borderRadius="md" />
                   <VStack align="start">
                     <Heading size="sm">{selectedItem.title}</Heading>
@@ -323,7 +321,7 @@ const Favorites = ({ session }) => {
         </Box>
       )}
 
-      {/* --- === THIS IS THE UPDATED SECTION === --- */}
+      {/* --- EXISTING FAVORITES --- */}
       <Box p={8} bg={formBg} borderRadius="xl" boxShadow="lg">
         <Heading size="lg" mb={4}>My Saved Favorites</Heading>
         {loading ? (
@@ -341,15 +339,12 @@ const Favorites = ({ session }) => {
                     borderRadius="md"
                     mb={2}
                     w="100%"
-                    // 1. A consistent height for the image container
                     h={{ base: "300px", md: "350px" }}
-                    // 2. THIS IS THE FIX:
-                    objectFit="contain" // Fits the whole image, no cropping
-                    bg="gray.100" // Adds a background to the container
-                    p={2} // Adds some padding so the image doesn't touch the edges
+                    objectFit="contain"
+                    bg="gray.100"
+                    p={2}
                   />
                 ) : (
-                  // 3. A placeholder that matches the image height
                   <Box
                     h={{ base: "300px", md: "350px" }}
                     w="100%"
@@ -372,7 +367,6 @@ const Favorites = ({ session }) => {
           </SimpleGrid>
         )}
       </Box>
-      {/* --- === END OF UPDATED SECTION === --- */}
     </VStack>
   );
 };
