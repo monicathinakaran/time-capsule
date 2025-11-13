@@ -1,4 +1,4 @@
-// src/Pages/Favorites.jsx
+// src/Pages/SharedFavorites.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase_client.js'; // Adjust path
 import axios from 'axios';
@@ -20,17 +20,18 @@ import {
   Textarea,
   CloseButton,
   Select,
+  Avatar,
   IconButton,
   Flex, // Import Flex
 } from '@chakra-ui/react';
 import { DeleteIcon } from '@chakra-ui/icons';
 
-// Get API keys from .env
 const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const GOOGLE_BOOKS_API_KEY = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY;
 
-const Favorites = ({ session }) => {
+const SharedFavorites = ({ session, capsuleId }) => {
   const [favorites, setFavorites] = useState([]);
+  const [userMap, setUserMap] = useState({});
   const [loading, setLoading] = useState(true);
   
   const [searchCategory, setSearchCategory] = useState('Movie');
@@ -47,23 +48,42 @@ const Favorites = ({ session }) => {
   const formBg = useColorModeValue('white', 'gray.700');
   const toast = useToast();
 
-  // 1. Fetch personal favorites
   useEffect(() => {
+    if (!capsuleId) return;
     const getFavorites = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('favorites') // Use the personal 'favorites' table
+      const { data: favoritesData, error: favoritesError } = await supabase
+        .from('shared_favorites')
         .select('*')
-        .eq('user_id', user.id) // Use 'user_id'
+        .eq('capsule_id', capsuleId)
         .order('created_at', { ascending: false });
-      if (error) console.error('Error fetching favorites:', error);
-      else setFavorites(data);
+      if (favoritesError) {
+        console.error('Error fetching favorites:', favoritesError.message);
+        toast({ title: 'Error fetching favorites', description: favoritesError.message, status: 'error' });
+        setLoading(false);
+        return;
+      }
+      setFavorites(favoritesData);
+      const userIds = [...new Set(favoritesData.map(e => e.user_id).filter(id => id))];
+      if (userIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .in('id', userIds);
+        if (profilesError) console.error('Error fetching profiles:', profilesError.message);
+        else {
+          const map = profilesData.reduce((acc, profile) => {
+            acc[profile.id] = profile.email;
+            return acc;
+          }, {});
+          setUserMap(map);
+        }
+      }
       setLoading(false);
     };
     getFavorites();
-  }, [user.id]);
+  }, [capsuleId, toast]);
 
-  // 2. Search function (unchanged)
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchQuery) return;
@@ -90,7 +110,6 @@ const Favorites = ({ session }) => {
     setIsSearching(false);
   };
 
-  // 3. Select item (unchanged)
   const handleSelectItem = (item) => {
     setSelectedItem(item);
     setSearchQuery('');
@@ -98,29 +117,26 @@ const Favorites = ({ session }) => {
     setComments('');
   };
 
-  // 4. Save favorite (saves to personal 'favorites' table)
   const handleAddFavorite = async (e) => {
     e.preventDefault();
     if (!selectedItem) return;
     setIsSaving(true);
     let newFavorite;
     if (searchCategory === 'Movie') {
-      newFavorite = { category: 'Movie', title: selectedItem.title, notes: comments, image_url: `https://image.tmdb.org/t/p/w500${selectedItem.poster_path}`, user_id: user.id };
+      newFavorite = { category: 'Movie', title: selectedItem.title, notes: comments, image_url: `https://image.tmdb.org/t/p/w500${selectedItem.poster_path}`, capsule_id: capsuleId, user_id: user.id };
     } else if (searchCategory === 'Book') {
-      newFavorite = { category: 'Book', title: selectedItem.volumeInfo.title, notes: comments, image_url: selectedItem.volumeInfo.imageLinks?.thumbnail || null, user_id: user.id };
+      newFavorite = { category: 'Book', title: selectedItem.volumeInfo.title, notes: comments, image_url: selectedItem.volumeInfo.imageLinks?.thumbnail || null, capsule_id: capsuleId, user_id: user.id };
     } else if (searchCategory === 'Song') {
       const song = selectedItem.result;
-      newFavorite = { category: 'Song', title: `${song.title} - ${song.artist_names}`, notes: comments, image_url: song.song_art_image_thumbnail_url || null, user_id: user.id };
+      newFavorite = { category: 'Song', title: `${song.title} - ${song.artist_names}`, notes: comments, image_url: song.song_art_image_thumbnail_url || null, capsule_id: capsuleId, user_id: user.id };
     }
-    
-    // Save to the personal 'favorites' table
-    const { data, error } = await supabase.from('favorites').insert(newFavorite).select().single();
-    
+    const { data, error } = await supabase.from('shared_favorites').insert(newFavorite).select().single();
     if (error) {
       console.error('Error inserting favorite:', error);
       toast({ title: 'Error saving favorite.', status: 'error' });
     } else {
       setFavorites([data, ...favorites]);
+      setUserMap({ ...userMap, [user.id]: user.email });
       toast({ title: 'Favorite added!', status: 'success' });
       setSelectedItem(null);
       setComments('');
@@ -128,7 +144,6 @@ const Favorites = ({ session }) => {
     setIsSaving(false);
   };
   
-  // 5. Change category (unchanged)
   const changeCategory = (e) => {
     setSearchCategory(e.target.value);
     setSearchQuery('');
@@ -136,11 +151,10 @@ const Favorites = ({ session }) => {
     setSelectedItem(null);
   };
 
-  // 6. Delete favorite (from personal 'favorites' table)
   const handleDeleteFavorite = async (itemId) => {
     try {
       const { error } = await supabase
-        .from('favorites') // Use personal 'favorites' table
+        .from('shared_favorites')
         .delete()
         .eq('id', itemId);
       
@@ -157,9 +171,9 @@ const Favorites = ({ session }) => {
 
   if (loading) {
     return (
-        <Box p={8} bg={formBg} borderRadius="xl" boxShadow="lg" textAlign="center">
-            <Spinner size="xl" />
-        </Box>
+      <Box p={8} bg={formBg} borderRadius="xl" boxShadow="lg" textAlign="center">
+        <Spinner size="xl" />
+      </Box>
     );
   }
 
@@ -172,7 +186,7 @@ const Favorites = ({ session }) => {
         <Box p={8} bg={formBg} borderRadius="xl" boxShadow="lg">
           <form onSubmit={handleSearch}>
             <VStack spacing={4}>
-              <Heading size="md">Add a New Favorite</Heading>
+              <Heading size="md">Add a Shared Favorite</Heading>
               
               <FormControl>
                 <FormLabel>Category</FormLabel>
@@ -263,7 +277,7 @@ const Favorites = ({ session }) => {
           <CloseButton position="absolute" top={4} right={4} onClick={() => setSelectedItem(null)} />
           <form onSubmit={handleAddFavorite}>
             <VStack spacing={4}>
-              <Heading size="md">Add to Favorites</Heading>
+              <Heading size="md">Add to Shared Favorites</Heading>
               
               {searchCategory === 'Movie' && (
                 <HStack>
@@ -301,14 +315,14 @@ const Favorites = ({ session }) => {
               <FormControl>
                 <FormLabel>Your Comments (Optional)</FormLabel>
                 <Textarea
-                  placeholder="Why did you love this?"
+                  placeholder="Why does the group love this?"
                   value={comments}
                   onChange={(e) => setComments(e.target.value)}
                 />
               </FormControl>
               
               <Button type="submit" colorScheme="purple" width="full" isLoading={isSaving}>
-                Save Favorite
+                Save Shared Favorite
               </Button>
             </VStack>
           </form>
@@ -317,67 +331,77 @@ const Favorites = ({ session }) => {
 
       {/* --- EXISTING FAVORITES --- */}
       <Box p={8} bg={formBg} borderRadius="xl" boxShadow="lg">
-        <Heading size="lg" mb={4}>My Saved Favorites</Heading>
+        <Heading size="lg" mb={4}>Our Shared Favorites</Heading>
         {loading ? (
           <Spinner size="xl" />
         ) : favorites.length === 0 ? (
-          <Text>You haven't added any favorites yet.</Text>
+          <Text>No favorites saved in this capsule yet.</Text>
         ) : (
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-            {favorites.map((item) => (
-              <Box 
-                key={item.id} 
-                p={4} 
-                borderWidth="1px" 
-                borderRadius="lg" 
-                h="100%"
-              >
-                {item.image_url ? (
-                  <Image
-                    src={item.image_url}
-                    alt={item.title}
-                    borderRadius="md"
-                    mb={2}
-                    w="100%"
-                    h={{ base: "300px", md: "350px" }}
-                    objectFit="contain"
-                    bg="gray.100"
-                    p={2}
-                  />
-                ) : (
-                  <Box
-                    h={{ base: "300px", md: "350px" }}
-                    w="100%"
-                    bg="gray.100"
-                    borderRadius="md"
-                    mb={2}
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <Text color="gray.400">No Image</Text>
-                  </Box>
-                )}
+            {favorites.map((item) => {
+              const email = userMap[item.user_id] || 'An invited user';
+              return (
+                <Box 
+                  key={item.id} 
+                  p={4} 
+                  borderWidth="1px" 
+                  borderRadius="lg" 
+                  h="100%"
+                >
+                  {item.image_url ? (
+                    <Image
+                      src={item.image_url}
+                      alt={item.title}
+                      borderRadius="md"
+                      mb={2}
+                      w="100%"
+                      h={{ base: "300px", md: "350px" }}
+                      objectFit="contain"
+                      bg="gray.100"
+                      p={2}
+                    />
+                  ) : (
+                    <Box
+                      h={{ base: "300px", md: "350px" }}
+                      w="100%"
+                      bg="gray.100"
+                      borderRadius="md"
+                      mb={2}
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                    >
+                      <Text color="gray.400">No Image</Text>
+                    </Box>
+                  )}
+                  
+                  <Flex justify="space-between" align="start" mt={2}>
+                    <Text fontWeight="bold" noOfLines={2} mr={2}>
+                      {item.title}
+                    </Text>
+                    <IconButton
+                      icon={<DeleteIcon />}
+                      isRound
+                      size="md"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDeleteFavorite(item.id)}
+                    />
+                  </Flex>
 
-                <Flex justify="space-between" align="start" mt={2}>
-                  <Text fontWeight="bold" noOfLines={2} mr={2}>
-                    {item.title}
+                  <Text fontSize="sm" color="gray.500" noOfLines={3} mt={1}>
+                    {item.notes}
                   </Text>
-                  <IconButton
-                    icon={<DeleteIcon />}
-                    isRound
-                    size="md"
-                    colorScheme="red"
-                    variant="ghost"
-                    onClick={() => handleDeleteFavorite(item.id)}
-                  />
-                </Flex>
-
-                <Text fontSize="sm" color="gray.500" noOfLines={3} mt={1}>
-                  {item.notes}
-                </Text>
-              </Box>
-            ))}
+                  
+                  <HStack mt={2} pt={2} borderTopWidth="1px" borderColor="gray.200">
+                    <Avatar name={email} size="xs" />
+                    <Text fontSize="xs" color="gray.500">
+                      Added by {email}
+                    </Text>
+                  </HStack>
+                </Box>
+              );
+            })}
           </SimpleGrid>
         )}
       </Box>
@@ -385,4 +409,4 @@ const Favorites = ({ session }) => {
   );
 };
 
-export default Favorites;
+export default SharedFavorites;
