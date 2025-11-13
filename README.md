@@ -1,92 +1,57 @@
-# Time Capsule ⏳
+# ⏳ Time Capsule: A Digital Memory Vault
 
-A full-stack web application for preserving personal memories. This app lets you create a private journal, track a bucket list, seal letters to be opened on a future date, and dynamically search for and save your favorite media.
+**Time Capsule** is a full-stack web application designed as a digital vault for users to create, store, and securely share personal and collaborative "time capsules" with friends and family. This project moves beyond a simple note-taking app by implementing a robust, secure sharing system with nuanced data privacy rules.
 
-### ✨ [View Live Demo](https://time-capsule-ashen.vercel.app/) ✨
+**[Live Demo](https://time-capsule-ashen.vercel.app/)**
 
----
+## ✨ Core Features
 
-### 📸 Screenshots
-<img width="1897" height="908" alt="image" src="https://github.com/user-attachments/assets/b48a6f07-0a3f-4d80-9450-71ce135ab2b0" />
-<img width="1901" height="906" alt="image" src="https://github.com/user-attachments/assets/e6781bb2-0163-40ad-91b9-bb4e0d7aac24" />
-<img width="1901" height="909" alt="image" src="https://github.com/user-attachments/assets/dac80461-e69a-4006-9a8f-8b696ca412b4" />
+This project is built around three core feature sets: a personal space ("My Capsule"), a collaborative group space ("Shared Space"), and a 1-to-1 sharing mechanism ("Inbox").
 
----
+### My Capsule (Personal)
 
-### 🚀 Key Features
+* **Journal:** Create, read, update, and delete personal journal entries with optional image uploads.
+* **Future Letters:** Write letters to your future self that are "locked" until a specified unlock date.
+* **Bucket List & Favorites:** Track personal goals and lists of favorite media.
+* **"Soft Delete" Logic:** Deleting an item from "My Capsule" only flags it as `is_deleted` in the database. This hides it from the user's personal view but **preserves it** for any user it has been shared with in the Inbox.
+* **Share 1-to-1:** Securely share any item from "My Capsule" with another user via the Inbox.
 
-* **Full User Authentication:** Secure sign-up, login, and protected routes using Supabase Auth.
-* **Personal Journal:** A rich text editor to write, save, and view journal entries with optional image uploads.
-* **Bucket List:** A dynamic to-do list to add, track, and check off life goals.
-* **Future Letters:** A component to write and "seal" a letter that can only be opened on or after a future date selected by the user.
-* **API-Powered Favorites Log:**
-    * Search for real-time data on movies (from TMDb), books (from Google Books), and songs (from Genius).
-    * A Supabase Edge Function (serverless) is used to securely call the Genius API and bypass CORS errors.
-    * Save selected media to your personal list with your own comments.
+### 👥 Shared Space (Collaborative)
 
----
+* **Create Capsules:** Users can create new collaborative "capsules" and invite friends by email.
+* **Shared Content:** All members can add and view shared journal entries (with images) and shared future letters.
+* **"Hard Delete" Logic:** Any member can delete an item, which permanently removes it from the database for *everyone* in that capsule.
+* **Locked Letter Rule:** To protect the capsule's integrity, future-dated letters *cannot* be deleted by anyone until their unlock date has passed.
 
-### 🛠️ Tech Stack
+### 📬 Inbox & Sharing System
 
-* **Frontend:** React, Vite
-* **UI Library:** Chakra UI
-* **Routing:** React Router
-* **Backend-as-a-Service (BaaS):** Supabase
-    * **Database:** Supabase (PostgreSQL)
-    * **Authentication:** Supabase Auth
-    * **File Storage:** Supabase Storage
-    * **Serverless:** Supabase Edge Functions (for Genius API)
-* **APIs:**
-    * The Movie Database (TMDb)
-    * Google Books
-    * Genius
-* **Deployment:** Vercel
+* **Share 1-to-1:** Users can send any "My Capsule" item (journal, letter) to another user.
+* **Edge Function:** A Supabase Edge Function is used to securely find a recipient's User ID from their email without exposing user data to the client.
+* **"Sent" & "Received" Tabs:** A fully functional inbox that shows all items a user has sent or received.
+* **"Per-User Soft Delete":** Deleting an item from the "Sent" or "Received" tab only flags it as `sender_deleted` or `recipient_deleted`. The item is removed from only that user's view, not the other's.
+* **Secure Viewer Modal:** Clicking "View Item" fetches the original content *only if* the user is the sender or recipient, enforced by complex RLS policies.
+* **Download Images:** Users can download images from shared journal entries.
 
 ---
 
-### ⚙️ How to Run Locally
+## 🛠 Tech Stack
 
-1.  **Clone the repository:**
-    ```sh
-    git clone [https://github.com/](https://github.com/)[Your-Username]/[Your-Repo-Name].git
-    cd time-capsule
-    ```
-
-2.  **Install dependencies:**
-    ```sh
-    npm install
-    ```
-
-3.  **Create your Supabase project:**
-    * Create a new project on [Supabase.com](httpss://supabase.com/).
-    * Add the `journal`, `bucket_list`, `future_letters`, and `favorites` tables. (You can use the SQL Editor in Supabase).
-    * Enable RLS policies for all tables to ensure users can only access their own data.
-
-4.  **Set up your `.env.local` file:**
-    * Create a file named `.env.local` in the root of the project.
-    * Add your API keys. (The `GENIUS_ACCESS_TOKEN` is set as a Supabase Secret, not here).
-    ```
-    VITE_SUPABASE_URL="YOUR_PROJECT_URL"
-    VITE_SUPABASE_ANON_KEY="YOUR_ANON_KEY"
-    VITE_TMDB_API_KEY="YOUR_TMDB_API_KEY"
-    VITE_GOOGLE_BOOKS_API_KEY="YOUR_GOOGLE_BOOKS_KEY"
-    ```
-
-5.  **Set up the Supabase Edge Function:**
-    * Install the Supabase CLI: `npm install supabase --save-dev`
-    * Link your project: `npx supabase link --project-ref <YOUR_PROJECT_ID>`
-    * Set your Genius secret: `npx supabase secrets set GENIUS_ACCESS_TOKEN=<YOUR_GENIUS_TOKEN>`
-    * Deploy the function: `npx supabase functions deploy`
-
-6.  **Run the app:**
-    ```sh
-    npm run dev
-    ```
+* **Frontend:** React.js (Vite), Chakra UI, React Icons, React Router
+* **Backend (BaaS):** Supabase
+* **Database:** Supabase Postgres
+* **Authentication:** Supabase Auth
+* **File Storage:** Supabase Storage (for journal images)
+* **Serverless Logic:** Supabase Edge Functions (Deno/TypeScript)
+* **Deployment:** Vercel (CI/CD from GitHub)
 
 ---
 
-### 🗺️ Future Roadmap
+## 🚀 Getting Started
 
-* **Social Features:** Implement "Collaborative Capsules" for friends and families.
-* **Gamification:** Add a "Streak" counter for daily journaling.
-* **AI Integration:** Use an AI model to provide "On this day..." summaries from past journal entries.
+To run this project locally, you will need to create your own Supabase project.
+
+### 1. Clone the Repository
+
+```bash
+git clone [https://github.com/your-username/time-capsule.git](https://github.com/your-username/time-capsule.git)
+cd time-capsule
